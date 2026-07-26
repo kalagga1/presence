@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Presence — A Meditation Game</title>
+  <meta name="description" content="A minimal meditation game. Stay present. Click the button when it appears. How long can you stay focused?" />
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #1a1d24;
+      --text: #e8e6e3;
+      --muted: #8b8a87;
+      --accent: #7c9cff;
+      --accent-glow: rgba(124, 156, 255, 0.35);
+      --button: #7c9cff;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); user-select: none; }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; opacity: 0; pointer-events: none; transition: opacity 0.35s ease; }
+    .screen.active { opacity: 1; pointer-events: auto; }
+    #start-screen h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); font-weight: 600; letter-spacing: -0.03em; margin-bottom: 12px; }
+    #start-screen .tagline { color: var(--muted); font-size: 1.05rem; max-width: 320px; text-align: center; line-height: 1.5; margin-bottom: 40px; }
+    .btn { background: var(--button); color: #0f1115; border: none; border-radius: 999px; padding: 16px 42px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; box-shadow: 0 0 0 0 var(--accent-glow); }
+    .btn:hover, .btn:active { transform: scale(1.04); box-shadow: 0 0 28px 4px var(--accent-glow); }
+    .secondary-btn { background: transparent; color: var(--muted); border: 1px solid #2a2e38; margin-top: 16px; padding: 12px 28px; font-size: 0.95rem; }
+    .secondary-btn:hover { color: var(--text); border-color: #3a3f4b; box-shadow: none; }
+    #score-display { position: absolute; top: 28px; left: 0; right: 0; text-align: center; font-size: 1.1rem; color: var(--muted); letter-spacing: 0.04em; }
+    #score-display span { color: var(--text); font-weight: 600; font-size: 1.35rem; }
+    #game-area { position: absolute; inset: 0; overflow: hidden; }
+    #focus-btn { position: absolute; width: 88px; height: 88px; border-radius: 50%; background: var(--button); border: none; cursor: pointer; box-shadow: 0 0 0 0 var(--accent-glow); opacity: 0; transform: scale(0.6); transition: opacity 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease; pointer-events: none; }
+    #focus-btn.visible { opacity: 1; transform: scale(1); pointer-events: auto; box-shadow: 0 0 32px 8px var(--accent-glow); }
+    #focus-btn:active { transform: scale(0.92); }
+    #gameover-screen h2 { font-size: 1.8rem; margin-bottom: 8px; }
+    #final-score { font-size: 3.2rem; font-weight: 700; color: var(--accent); margin: 12px 0 28px; }
+    #name-form { display: none; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 24px; width: 100%; max-width: 300px; }
+    #name-form.active { display: flex; }
+    #name-input { width: 100%; padding: 14px 18px; border-radius: 12px; border: 1px solid #2a2e38; background: var(--surface); color: var(--text); font-size: 1.05rem; text-align: center; outline: none; }
+    #name-input:focus { border-color: var(--accent); }
+    #highscores-list { width: 100%; max-width: 340px; margin-top: 20px; max-height: 240px; overflow-y: auto; }
+    #highscores-list h3 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; text-align: center; }
+    .score-row { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 8px; font-size: 0.95rem; }
+    .score-row:nth-child(even) { background: rgba(255,255,255,0.03); }
+    .score-row .rank { color: var(--muted); width: 28px; }
+    .score-row .name { flex: 1; text-align: left; padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .score-row .pts { font-weight: 600; color: var(--accent); }
+    .empty-scores { text-align: center; color: var(--muted); font-size: 0.95rem; padding: 20px 0; }
+    #hint { position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 0.9rem; opacity: 0.7; transition: opacity 0.4s; }
+    #hint.hidden { opacity: 0; }
+    .credit { position: absolute; bottom: 16px; font-size: 0.75rem; color: #555; }
+  </style>
+</head>
+<body>
+  <div id="start-screen" class="screen active">
+    <h1>Presence</h1>
+    <p class="tagline">A button appears for one second.<br>Stay focused. Click it.<br>How long can you remain present?</p>
+    <button class="btn" id="start-btn">Begin</button>
+    <button class="btn secondary-btn" id="view-scores-btn">High Scores</button>
+    <div class="credit">A simple meditation game</div>
+  </div>
+
+  <div id="game-screen" class="screen">
+    <div id="score-display">Score: <span id="score">0</span></div>
+    <div id="game-area">
+      <button id="focus-btn" aria-label="Focus button"></button>
+    </div>
+    <div id="hint">Click the button when it appears</div>
+  </div>
+
+  <div id="gameover-screen" class="screen">
+    <h2>Game Over</h2>
+    <div id="final-score">0</div>
+    <div id="name-form">
+      <p style="color: var(--muted); margin-bottom: 4px;">New high score!</p>
+      <input type="text" id="name-input" placeholder="Your name" maxlength="16" autocomplete="off" />
+      <button class="btn" id="save-score-btn">Save Score</button>
+    </div>
+    <button class="btn" id="play-again-btn">Play Again</button>
+    <button class="btn secondary-btn" id="back-home-btn">Home</button>
+    <div id="highscores-list"></div>
+  </div>
+
+  <script>
+    const APPEAR_DURATION = 1000;
+    const MIN_DELAY = 1000;
+    const MAX_DELAY = 3000;
+    const BUTTON_SIZE = 88;
+    const MAX_HIGH_SCORES = 100;
+
+    let score = 0;
+    let isPlaying = false;
+    let appearTimeout = null;
+    let nextTimeout = null;
+    let buttonVisible = false;
+
+    const startScreen = document.getElementById('start-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const gameoverScreen = document.getElementById('gameover-screen');
+    const startBtn = document.getElementById('start-btn');
+    const viewScoresBtn = document.getElementById('view-scores-btn');
+    const focusBtn = document.getElementById('focus-btn');
+    const scoreEl = document.getElementById('score');
+    const finalScoreEl = document.getElementById('final-score');
+    const nameForm = document.getElementById('name-form');
+    const nameInput = document.getElementById('name-input');
+    const saveScoreBtn = document.getElementById('save-score-btn');
+    const playAgainBtn = document.getElementById('play-again-btn');
+    const backHomeBtn = document.getElementById('back-home-btn');
+    const highscoresList = document.getElementById('highscores-list');
+    const hint = document.getElementById('hint');
+    const gameArea = document.getElementById('game-area');
+
+    function getHighScores() {
+      try {
+        const raw = localStorage.getItem('presenceHighScores');
+        return raw ? JSON.parse(raw) : [];
+      } catch { return []; }
+    }
+
+    function saveHighScores(list) {
+      localStorage.setItem('presenceHighScores', JSON.stringify(list.slice(0, MAX_HIGH_SCORES)));
+    }
+
+    function isTopScore(newScore) {
+      const scores = getHighScores();
+      if (scores.length < MAX_HIGH_SCORES) return true;
+      return newScore > scores[scores.length - 1].score;
+    }
+
+    function addHighScore(name, newScore) {
+      const scores = getHighScores();
+      scores.push({
+        name: (name.trim().substring(0, 16) || 'Anonymous'),
+        score: newScore,
+        date: new Date().toISOString().slice(0, 10)
+      });
+      scores.sort((a, b) => b.score - a.score);
+      saveHighScores(scores);
+    }
+
+    function renderHighScores() {
+      const scores = getHighScores();
+      if (scores.length === 0) {
+        highscoresList.innerHTML = '<h3>High Scores</h3><div class="empty-scores">No scores yet. Be the first.</div>';
+        return;
+      }
+      let html = '<h3>High Scores</h3>';
+      scores.slice(0, 20).forEach((s, i) => {
+        html += '<div class="score-row"><span class="rank">' + (i+1) + '.</span><span class="name">' + escapeHtml(s.name) + '</span><span class="pts">' + s.score + '</span></div>';
+      });
+      highscoresList.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function showScreen(screen) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      screen.classList.add('active');
+    }
+
+    function randomDelay() {
+      return MIN_DELAY + Math.random() * (MAX_DELAY - MIN_DELAY);
+    }
+
+    function placeButtonRandomly() {
+      const area = gameArea.getBoundingClientRect();
+      const padding = 24;
+      const maxX = area.width - BUTTON_SIZE - padding;
+      const maxY = area.height - BUTTON_SIZE - padding - 60;
+      const x = padding + Math.random() * Math.max(0, maxX - padding);
+      const y = 80 + Math.random() * Math.max(0, maxY - 80);
+      focusBtn.style.left = x + 'px';
+      focusBtn.style.top = y + 'px';
+    }
+
+    function showButton() {
+      if (!isPlaying) return;
+      placeButtonRandomly();
+      focusBtn.classList.add('visible');
+      buttonVisible = true;
+      appearTimeout = setTimeout(() => {
+        if (buttonVisible) endGame();
+      }, APPEAR_DURATION);
+    }
+
+    function hideButton() {
+      focusBtn.classList.remove('visible');
+      buttonVisible = false;
+      if (appearTimeout) { clearTimeout(appearTimeout); appearTimeout = null; }
+    }
+
+    function scheduleNext() {
+      if (!isPlaying) return;
+      nextTimeout = setTimeout(showButton, randomDelay());
+    }
+
+    function onButtonClick(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!buttonVisible || !isPlaying) return;
+      score++;
+      scoreEl.textContent = score;
+      hideButton();
+      scheduleNext();
+      if (score === 1) hint.classList.add('hidden');
+    }
+
+    function startGame() {
+      score = 0;
+      scoreEl.textContent = '0';
+      isPlaying = true;
+      buttonVisible = false;
+      hint.classList.remove('hidden');
+      hideButton();
+      clearTimeouts();
+      showScreen(gameScreen);
+      nextTimeout = setTimeout(showButton, 800);
+    }
+
+    function endGame() {
+      isPlaying = false;
+      hideButton();
+      clearTimeouts();
+      finalScoreEl.textContent = score;
+      if (score > 0 && isTopScore(score)) {
+        nameForm.classList.add('active');
+        nameInput.value = '';
+        setTimeout(() => nameInput.focus(), 300);
+      } else {
+        nameForm.classList.remove('active');
+      }
+      renderHighScores();
+      showScreen(gameoverScreen);
+    }
+
+    function clearTimeouts() {
+      if (appearTimeout) clearTimeout(appearTimeout);
+      if (nextTimeout) clearTimeout(nextTimeout);
+      appearTimeout = nextTimeout = null;
+    }
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+    backHomeBtn.addEventListener('click', () => showScreen(startScreen));
+    viewScoresBtn.addEventListener('click', () => {
+      nameForm.classList.remove('active');
+      finalScoreEl.textContent = '—';
+      renderHighScores();
+      showScreen(gameoverScreen);
+    });
+    focusBtn.addEventListener('click', onButtonClick);
+    focusBtn.addEventListener('touchstart', onButtonClick, { passive: false });
+    saveScoreBtn.addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.focus(); return; }
+      addHighScore(name, score);
+      nameForm.classList.remove('active');
+      renderHighScores();
+    });
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveScoreBtn.click(); });
+    document.addEventListener('touchmove', e => { if (isPlaying) e.preventDefault(); }, { passive: false });
+    renderHighScores();
+  </script>
+</body>
+</html>
