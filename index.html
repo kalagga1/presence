@@ -6,7 +6,7 @@
   <title>Presence — A Meditation Game</title>
   <meta name="description" content="A minimal meditation game. Stay present. Click the button when it appears. How long can you stay focused?" />
   
-  <!-- Firebase SDK (compat version for simple single-file use) -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 
@@ -90,7 +90,7 @@
 
   <script>
     // ========== GAME SETTINGS ==========
-    const APPEAR_DURATION = 3000;      // Button stays visible for 3 seconds
+    const APPEAR_DURATION = 3000;
     const MIN_DELAY = 1000;
     const MAX_DELAY = 3000;
     const BUTTON_SIZE = 88;
@@ -117,7 +117,21 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    
+    // Check if config has been filled in
+    const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY" &&
+                                 firebaseConfig.databaseURL !== "https://YOUR_PROJECT-default-rtdb.firebaseio.com";
+
+    let db = null;
+
+    if (isFirebaseConfigured) {
+      try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+      } catch (err) {
+        console.error("Firebase init error:", err);
+      }
+    }
+
     // ========== STATE ==========
     let score = 0;
     let isPlaying = false;
@@ -146,6 +160,10 @@
 
     // ========== FIREBASE HIGH SCORES ==========
     async function fetchHighScores() {
+      if (!db) {
+        return { scores: [], error: "Firebase not configured yet. Follow the setup instructions." };
+      }
+
       try {
         const snapshot = await db.ref('highscores')
           .orderByChild('score')
@@ -153,7 +171,6 @@
           .once('value');
 
         const data = snapshot.val() || {};
-        // Convert object to array and sort descending
         const scores = Object.keys(data).map(key => ({
           id: key,
           ...data[key]
@@ -167,7 +184,7 @@
     }
 
     async function addHighScore(name, newScore) {
-      // Push a new score entry
+      if (!db) throw new Error("Firebase not configured");
       await db.ref('highscores').push({
         name: name.substring(0, 16),
         score: newScore,
@@ -291,6 +308,11 @@
 
       if (error) {
         renderHighScores([], error);
+        // Still allow local play even without Firebase
+        if (score > 0) {
+          nameForm.classList.add('active');
+          nameInput.value = '';
+        }
         return;
       }
 
@@ -334,6 +356,11 @@
         return;
       }
 
+      if (!db) {
+        alert("Firebase is not configured yet.\n\nFollow the setup instructions to enable global high scores.");
+        return;
+      }
+
       isSaving = true;
       saveScoreBtn.disabled = true;
       saveScoreBtn.textContent = "Saving...";
@@ -342,7 +369,6 @@
         await addHighScore(name, score);
         nameForm.classList.remove('active');
 
-        // Refresh the list
         const { scores, error } = await fetchHighScores();
         renderHighScores(scores, error);
       } catch (err) {
@@ -365,3 +391,4 @@
   </script>
 </body>
 </html>
+
