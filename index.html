@@ -114,9 +114,22 @@
     };
 
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    // Check if config has been filled in AND Firebase library actually loaded
+   const isFirebaseConfigured = 
+   typeof firebase !== "undefined" &&
+   firebaseConfig.apiKey !== "YOUR_API_KEY" &&
+   firebaseConfig.databaseURL !== "https://YOUR_PROJECT-default-rtdb.firebaseio.com";
+ 
+   let db = null;
+
+   if (isFirebaseConfigured) {
+     try {
+       firebase.initializeApp(firebaseConfig);
+       db = firebase.database();
+    } catch (err) {
+      console.error("Firebase init error:", err);
+    }
+  }
 
     
     // ========== STATE ==========
