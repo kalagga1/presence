@@ -4,12 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Presence — A Meditation Game</title>
-  <meta name="description" content="A minimal meditation game. Stay present. Click the button when it appears. How long can you stay focused?" />
-  
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-
+  <meta name="description" content="A minimal meditation game. Stay present. Click the button when it appears." />
   <style>
     :root {
       --bg: #0f1115;
@@ -27,22 +22,19 @@
     .screen.active { opacity: 1; pointer-events: auto; }
     #start-screen h1 { font-size: clamp(2.2rem, 8vw, 3.4rem); font-weight: 600; letter-spacing: -0.03em; margin-bottom: 12px; }
     #start-screen .tagline { color: var(--muted); font-size: 1.05rem; max-width: 320px; text-align: center; line-height: 1.5; margin-bottom: 40px; }
-    .btn { background: var(--button); color: #0f1115; border: none; border-radius: 999px; padding: 16px 42px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; box-shadow: 0 0 0 0 var(--accent-glow); }
-    .btn:hover, .btn:active { transform: scale(1.04); box-shadow: 0 0 28px 4px var(--accent-glow); }
+    .btn { background: var(--button); color: #0f1115; border: none; border-radius: 999px; padding: 16px 42px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .btn:active { transform: scale(0.97); }
     .secondary-btn { background: transparent; color: var(--muted); border: 1px solid #2a2e38; margin-top: 16px; padding: 12px 28px; font-size: 0.95rem; }
-    .secondary-btn:hover { color: var(--text); border-color: #3a3f4b; box-shadow: none; }
-    #score-display { position: absolute; top: 28px; left: 0; right: 0; text-align: center; font-size: 1.1rem; color: var(--muted); letter-spacing: 0.04em; }
+    #score-display { position: absolute; top: 28px; left: 0; right: 0; text-align: center; font-size: 1.1rem; color: var(--muted); }
     #score-display span { color: var(--text); font-weight: 600; font-size: 1.35rem; }
     #game-area { position: absolute; inset: 0; overflow: hidden; }
-    #focus-btn { position: absolute; width: 88px; height: 88px; border-radius: 50%; background: var(--button); border: none; cursor: pointer; box-shadow: 0 0 0 0 var(--accent-glow); opacity: 0; transform: scale(0.6); transition: opacity 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease; pointer-events: none; }
+    #focus-btn { position: absolute; width: 88px; height: 88px; border-radius: 50%; background: var(--button); border: none; cursor: pointer; opacity: 0; transform: scale(0.6); transition: opacity 0.12s ease, transform 0.12s ease; pointer-events: none; }
     #focus-btn.visible { opacity: 1; transform: scale(1); pointer-events: auto; box-shadow: 0 0 32px 8px var(--accent-glow); }
-    #focus-btn:active { transform: scale(0.92); }
     #gameover-screen h2 { font-size: 1.8rem; margin-bottom: 8px; }
     #final-score { font-size: 3.2rem; font-weight: 700; color: var(--accent); margin: 12px 0 28px; }
     #name-form { display: none; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 24px; width: 100%; max-width: 300px; }
     #name-form.active { display: flex; }
     #name-input { width: 100%; padding: 14px 18px; border-radius: 12px; border: 1px solid #2a2e38; background: var(--surface); color: var(--text); font-size: 1.05rem; text-align: center; outline: none; }
-    #name-input:focus { border-color: var(--accent); }
     #highscores-list { width: 100%; max-width: 340px; margin-top: 20px; max-height: 260px; overflow-y: auto; }
     #highscores-list h3 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; text-align: center; }
     .score-row { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 8px; font-size: 0.95rem; }
@@ -50,12 +42,10 @@
     .score-row .rank { color: var(--muted); width: 28px; }
     .score-row .name { flex: 1; text-align: left; padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .score-row .pts { font-weight: 600; color: var(--accent); }
-    .empty-scores, .loading-scores, .error-scores { text-align: center; color: var(--muted); font-size: 0.95rem; padding: 20px 0; }
-    .error-scores { color: #f87171; }
+    .empty-scores { text-align: center; color: var(--muted); font-size: 0.95rem; padding: 20px 0; }
     #hint { position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 0.9rem; opacity: 0.7; transition: opacity 0.4s; }
     #hint.hidden { opacity: 0; }
     .credit { position: absolute; bottom: 16px; font-size: 0.75rem; color: #555; }
-    #save-score-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -89,58 +79,18 @@
   </div>
 
   <script>
-    // ========== GAME SETTINGS ==========
     const APPEAR_DURATION = 3000;
     const MIN_DELAY = 1000;
     const MAX_DELAY = 3000;
     const BUTTON_SIZE = 88;
     const MAX_HIGH_SCORES = 100;
 
-    // ========== FIREBASE CONFIG ==========
-    // Follow the setup instructions I gave you, then paste your config here
-    // Import the functions you need from the SDKs you need
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-    // TODO: Add SDKs for Firebase products that you want to use
-    // https://firebase.google.com/docs/web/setup#available-libraries
-
-    // Your web app's Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyASA_4LEO8Iws4813Ntf_8sujR0BQ_Th4Q",
-      authDomain: "presence-game-8977a.firebaseapp.com",
-      projectId: "presence-game-8977a",
-      storageBucket: "presence-game-8977a.firebasestorage.app",
-      messagingSenderId: "702575024554",
-      appId: "1:702575024554:web:ef0d779f865d8a61cff3d3"
-    };
-
-
-    // Check if config has been filled in AND Firebase library actually loaded
-   const isFirebaseConfigured = 
-   typeof firebase !== "undefined" &&
-   firebaseConfig.apiKey !== "YOUR_API_KEY" &&
-   firebaseConfig.databaseURL !== "https://YOUR_PROJECT-default-rtdb.firebaseio.com";
- 
-   let db = null;
-
-   if (isFirebaseConfigured) {
-     try {
-       firebase.initializeApp(firebaseConfig);
-       db = firebase.database();
-    } catch (err) {
-      console.error("Firebase init error:", err);
-    }
-  }
-
-    
-    // ========== STATE ==========
     let score = 0;
     let isPlaying = false;
     let appearTimeout = null;
     let nextTimeout = null;
     let buttonVisible = false;
-    let isSaving = false;
 
-    // ========== DOM ==========
     const startScreen = document.getElementById('start-screen');
     const gameScreen = document.getElementById('game-screen');
     const gameoverScreen = document.getElementById('gameover-screen');
@@ -158,77 +108,59 @@
     const hint = document.getElementById('hint');
     const gameArea = document.getElementById('game-area');
 
-    // ========== FIREBASE HIGH SCORES ==========
-    async function fetchHighScores() {
-      if (!db) {
-        return { scores: [], error: "Firebase not configured yet. Follow the setup instructions." };
-      }
-
+    function getHighScores() {
       try {
-        const snapshot = await db.ref('highscores')
-          .orderByChild('score')
-          .limitToLast(MAX_HIGH_SCORES)
-          .once('value');
-
-        const data = snapshot.val() || {};
-        const scores = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        }));
-        scores.sort((a, b) => b.score - a.score);
-        return { scores, error: null };
-      } catch (err) {
-        console.error(err);
-        return { scores: [], error: "Could not load high scores" };
+        const raw = localStorage.getItem('presenceHighScores');
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
       }
     }
 
-    async function addHighScore(name, newScore) {
-      if (!db) throw new Error("Firebase not configured");
-      await db.ref('highscores').push({
-        name: name.substring(0, 16),
-        score: newScore,
-        date: new Date().toISOString().slice(0, 10)
-      });
+    function saveHighScores(list) {
+      localStorage.setItem('presenceHighScores', JSON.stringify(list.slice(0, MAX_HIGH_SCORES)));
     }
 
-    function isTopScore(scores, newScore) {
+    function isTopScore(newScore) {
+      const scores = getHighScores();
       if (scores.length < MAX_HIGH_SCORES) return true;
       return newScore > scores[scores.length - 1].score;
     }
 
-    // ========== RENDER ==========
-    function renderHighScores(scores, errorMsg = null) {
-      if (errorMsg) {
-        highscoresList.innerHTML = `<h3>High Scores</h3><div class="error-scores">${errorMsg}</div>`;
-        return;
-      }
+    function addHighScore(name, newScore) {
+      const scores = getHighScores();
+      scores.push({
+        name: name.trim().substring(0, 16) || 'Anonymous',
+        score: newScore,
+        date: new Date().toISOString().slice(0, 10)
+      });
+      scores.sort((a, b) => b.score - a.score);
+      saveHighScores(scores);
+    }
 
-      if (!scores || scores.length === 0) {
+    function renderHighScores() {
+      const scores = getHighScores();
+      if (scores.length === 0) {
         highscoresList.innerHTML = '<h3>High Scores</h3><div class="empty-scores">No scores yet. Be the first.</div>';
         return;
       }
-
       let html = '<h3>High Scores</h3>';
       scores.slice(0, 20).forEach((s, i) => {
-        html += `<div class="score-row">
-          <span class="rank">${i + 1}.</span>
-          <span class="name">${escapeHtml(s.name)}</span>
-          <span class="pts">${s.score}</span>
-        </div>`;
+        html += '<div class="score-row"><span class="rank">' + (i + 1) + '.</span><span class="name">' + escapeHtml(s.name) + '</span><span class="pts">' + s.score + '</span></div>';
       });
       highscoresList.innerHTML = html;
     }
 
     function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, m => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      })[m]);
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+      });
     }
 
-    // ========== GAME LOGIC ==========
     function showScreen(screen) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.screen').forEach(function(s) {
+        s.classList.remove('active');
+      });
       screen.classList.add('active');
     }
 
@@ -252,7 +184,7 @@
       placeButtonRandomly();
       focusBtn.classList.add('visible');
       buttonVisible = true;
-      appearTimeout = setTimeout(() => {
+      appearTimeout = setTimeout(function() {
         if (buttonVisible) endGame();
       }, APPEAR_DURATION);
     }
@@ -294,101 +226,69 @@
       nextTimeout = setTimeout(showButton, 800);
     }
 
-    async function endGame() {
+    function endGame() {
       isPlaying = false;
       hideButton();
       clearTimeouts();
       finalScoreEl.textContent = score;
 
-      highscoresList.innerHTML = '<h3>High Scores</h3><div class="loading-scores">Loading scores...</div>';
-      nameForm.classList.remove('active');
-      showScreen(gameoverScreen);
-
-      const { scores, error } = await fetchHighScores();
-
-      if (error) {
-        renderHighScores([], error);
-        // Still allow local play even without Firebase
-        if (score > 0) {
-          nameForm.classList.add('active');
-          nameInput.value = '';
-        }
-        return;
-      }
-
-      if (score > 0 && isTopScore(scores, score)) {
+      if (score > 0 && isTopScore(score)) {
         nameForm.classList.add('active');
         nameInput.value = '';
-        setTimeout(() => nameInput.focus(), 300);
+        setTimeout(function() { nameInput.focus(); }, 300);
+      } else {
+        nameForm.classList.remove('active');
       }
 
-      renderHighScores(scores);
+      renderHighScores();
+      showScreen(gameoverScreen);
     }
 
     function clearTimeouts() {
       if (appearTimeout) clearTimeout(appearTimeout);
       if (nextTimeout) clearTimeout(nextTimeout);
-      appearTimeout = nextTimeout = null;
+      appearTimeout = null;
+      nextTimeout = null;
     }
 
-    // ========== EVENTS ==========
+    // Event listeners
     startBtn.addEventListener('click', startGame);
     playAgainBtn.addEventListener('click', startGame);
-    backHomeBtn.addEventListener('click', () => showScreen(startScreen));
+    backHomeBtn.addEventListener('click', function() {
+      showScreen(startScreen);
+    });
 
-    viewScoresBtn.addEventListener('click', async () => {
+    viewScoresBtn.addEventListener('click', function() {
       nameForm.classList.remove('active');
       finalScoreEl.textContent = '—';
-      highscoresList.innerHTML = '<h3>High Scores</h3><div class="loading-scores">Loading scores...</div>';
+      renderHighScores();
       showScreen(gameoverScreen);
-
-      const { scores, error } = await fetchHighScores();
-      renderHighScores(scores, error);
     });
 
     focusBtn.addEventListener('click', onButtonClick);
     focusBtn.addEventListener('touchstart', onButtonClick, { passive: false });
 
-    saveScoreBtn.addEventListener('click', async () => {
+    saveScoreBtn.addEventListener('click', function() {
       const name = nameInput.value.trim();
-      if (!name || isSaving) {
-        if (!name) nameInput.focus();
+      if (!name) {
+        nameInput.focus();
         return;
       }
-
-      if (!db) {
-        alert("Firebase is not configured yet.\n\nFollow the setup instructions to enable global high scores.");
-        return;
-      }
-
-      isSaving = true;
-      saveScoreBtn.disabled = true;
-      saveScoreBtn.textContent = "Saving...";
-
-      try {
-        await addHighScore(name, score);
-        nameForm.classList.remove('active');
-
-        const { scores, error } = await fetchHighScores();
-        renderHighScores(scores, error);
-      } catch (err) {
-        console.error(err);
-        alert("Could not save score. Please try again.");
-      } finally {
-        isSaving = false;
-        saveScoreBtn.disabled = false;
-        saveScoreBtn.textContent = "Save Score";
-      }
+      addHighScore(name, score);
+      nameForm.classList.remove('active');
+      renderHighScores();
     });
 
-    nameInput.addEventListener('keydown', e => {
+    nameInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') saveScoreBtn.click();
     });
 
-    document.addEventListener('touchmove', e => {
+    document.addEventListener('touchmove', function(e) {
       if (isPlaying) e.preventDefault();
     }, { passive: false });
+
+    // Initial render
+    renderHighScores();
   </script>
 </body>
 </html>
-
