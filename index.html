@@ -113,10 +113,6 @@
       appId: "1:702575024554:web:ef0d779f865d8a61cff3d3"
     };
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
     // Check if config has been filled in
     const isFirebaseConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY" &&
                                  firebaseConfig.databaseURL !== "https://YOUR_PROJECT-default-rtdb.firebaseio.com";
